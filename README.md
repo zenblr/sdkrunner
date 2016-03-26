@@ -1,2 +1,3 @@
-# sdkrun
-platform to run timeli javascript
+# sdkrunner
+A timeli sdk execution platform
+

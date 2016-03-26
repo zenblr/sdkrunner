@@ -1,0 +1,13 @@
+// following commands will install nodejs (latest) and npm (latest)
+curl -sL https://deb.nodesource.com/setup_4.x | sudo -E bash -
+sudo apt-get install nodejs 
+
+// if you find old node packages via this command
+dpkg --get-selections | grep node
+
+// then remove them
+sudo apt-get remove --purge node
+
+// npm and nodejs installations should be complete. 
+
+

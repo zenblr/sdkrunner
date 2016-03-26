@@ -1,0 +1,7 @@
+<div class="hidden controls">
+    <select class="asset"></select>
+    <input type="file" class="csv-import"/>
+    <input type="button" class="csv-upload" value="Upload"/>
+    <label><input type="checkbox" class="test-csv-only" checked="checked"/> Test only</label>
+</div>
+<div class="container" style="width:100%;"></div>
