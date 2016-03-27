@@ -4,8 +4,6 @@ var log4js = require('log4js');
 var logger = log4js.getLogger("INDEX");
 logger.setLevel("DEBUG");
 var db = require('../lib/db').db;
-var eventemitter = require('events');
-var testcomplete = new eventemitter();
 var config = require('../config/config');
 var oneHour = 1 * 60 * 60 * 1000;
 
@@ -19,63 +17,11 @@ router.get('/', function(req, res, next) {
 
 router.post('/:ask', function(req, res, next) {
   switch(req.params.ask) {
-      case 'login':
-            var version = req.body.version;
-            res.setHeader('Content-Type', 'application/json');
-            db.server_auth.findOne({version:version}, function(err, data){
-                if ((!err && data) && (is_valid_token(data))){
-                    res.send(data);
-                    res.end();
-                }
-                else {
-                    remove_token(version);
-                    authenticateClient(version, function(repl) {
-                        var data = {};
-                        if (repl != null) {
-                            data = JSON.parse(repl);
-                        }
-                        if (data.access_token) {
-                            data.version=version;
-                            data.date = Date.now();
-                            db.server_auth.save(data);
-                        }
-                        res.send(repl);
-                        res.end();
-                    });
-                }
-            });
-            break;
-      case 'refresh_token':
-            var version = req.body.version;
-            res.setHeader('Content-Type', 'application/json');
-            if (typeof(version) == "undefined") {
-                res.send({"status": "fail", "message": "no version specified"});
-                res.end();
-            }
-            else if(!(version in creds)) {
-                res.send({"status": "fail", "message": "unknown version specified"});
-                res.end();
-            }
-            else {
-                remove_token(version, function(ret) {
-                    res.send(ret);
-                    res.end();
-                });
-            }
-            break;
       case 'add_tenant':
             res.setHeader('Content-Type', 'application/json');
-            authenticateTenant(req.body, function(repl) {
-                var data = {};
-                if (repl != null) {
-                    data = JSON.parse(repl);
-                }
-                if (data.access_token) {
-                    data.version=version;
-                    data.acquired_date = Date.now();
-                    data.domain = req.body.domain;
-                    db.tenants.save(data);
-                    res.send({status:SUCCESS, tenant:data.domain});
+            authenticateAndSave(req.body, function(data) {
+                if (data.status == SUCCESS) {
+                    res.send({status:SUCCESS, tenant:req.body.domain});
                 }
                 else {
                     res.send({status:FAIL, tenant: req.body.domain, message:data.message});
@@ -83,75 +29,6 @@ router.post('/:ask', function(req, res, next) {
                 res.end();
             });
             break;
-      case 'delete':
-          res.setHeader('Content-Type', 'application/json');
-          var names = req.body.names;
-          if (names) {
-              names = JSON.parse(names);
-          }
-          if (names && (Array.isArray(names))) {
-              db.tests.remove({name:{$in:names}}, function(err, doc) {
-                if (!err) {
-                    res.send({status:'success'});
-                    res.end();
-                }
-                else {
-                    res.send({status:'failed', message:err});
-                    res.end();
-                }
-              });
-          }
-          else {
-              res.send({status:'failed', message:'no inputs provided'});
-              res.end();
-          }
-          break;
-      case 'rename':
-          res.setHeader('Content-Type', 'application/json');
-          var original = req.body.original;
-          var changed = req.body.changed;
-          if (original && changed) {
-              db.tests.findAndModify({
-                  query : {name: original},
-                  update: {$set: {name: changed}},
-                  new: false
-              }, function (err, doc) {
-                  if (!err) {
-                      res.send({status:'success'});
-                      res.end();
-                  }
-                  else {
-                      res.send({status:'failed', message:err});
-                      res.end();
-                  }
-              })
-          }
-          else {
-              res.send({status:'failed', message:'no inputs provided'});
-              res.end();
-          }
-          break;
-      case 'save_results':
-          res.setHeader('Content-Type', 'application/json');
-          var name = req.body.name;
-          var log = req.body.log;
-          db.results.update({name:name}, {name:name,log:log}, {upsert:true}, function() {
-              testcomplete.emit(name, log);
-              console.log(">> Event "+name+"  sent...");
-              res.send({status:'success'});
-              res.end();
-          });
-          break;
-      case 'update_config':
-          res.setHeader('Content-Type', 'application/json');
-          for (var n in req.body) {
-              if (req.body.hasOwnProperty(n)) {
-                  config.tests[n] = req.body[n];
-              };
-          }
-          res.send({status:'success', testconfig:config.tests});
-          res.end();
-          break;
       default:
             if (next) {
                 var err = new Error('Not Found');
@@ -167,10 +44,10 @@ router.get('/:ask', function(req, res, next) {
         case 'get_tenants':
             res.setHeader('Content-Type', 'application/json');
             var tenants = [];
-            db.tenants.find({},{domain:1}).forEach(function(err, tenant) {
+            db.tenants.find({},{"creds.domain":1}).forEach(function(err, tenant) {
                 if (!err) {
                     if (tenant) {
-                        tenants.push(tenant.domain);
+                        tenants.push(tenant.creds.domain);
                     }
                     else {
                         res.send({status: SUCCESS, tenants:tenants});
@@ -203,10 +80,34 @@ router.get('/:ask', function(req, res, next) {
         case 'get_client_token':
             res.setHeader('Content-Type', 'application/json');
             var domain = req.query.tenant;
-            db.tenants.findOne({domain:domain}, {access_token:1}, function(err, tenant){
+            db.tenants.findOne({"creds.domain":domain}, function(err, tenant){
                 if (!err && tenant) {
-                    res.send({status:SUCCESS, client_token:tenant.access_token});
-                    res.end();
+                    if (!is_valid_token(tenant)) {
+                        remove_token(tenant.creds.domain, function(result) {
+                            if(result == SUCCESS) {
+                                authenticateAndSave(tenant.creds, function(data) {
+                                    if (data.status == SUCCESS) {
+                                        res.send({status:SUCCESS, client_token:data.access_token});
+                                    }
+                                    else {
+                                        res.send({status:FAIL, message:data.message});
+                                    }
+                                    res.end();
+                                    return;
+                                });
+                            }
+                            else {
+                                res.send({status:FAIL, message:"could not delete old access token"});
+                                res.end();
+                                return;
+                            }
+                        });
+                    }
+                    else {
+                        res.send({status:SUCCESS, client_token:tenant.access_token});
+                        res.end();
+                        return;
+                    }
                 }
                 else {
                     res.send({status:FAIL, message:err});
@@ -224,36 +125,6 @@ router.get('/:ask', function(req, res, next) {
                 }
                 else {
                     res.send({status:FAIL, message:err});
-                    res.end();
-                }
-            });
-            break;
-        case 'run_auto':
-            var name = req.query.name;
-            name = name ? name : "default";
-            var quiet = req.query.q;
-            if (quiet && (quiet == 'y')) {
-                run_auto_quiet(name);
-                testcomplete.once(name, function(r) {
-                    console.log(">> Event "+name+"  received...");
-                    //res.setHeader('Content-Type', 'application/json');
-                    res.send(r);
-                    res.end();
-                });
-                return;
-            }
-            res.render('index', { title: 'Express', run_auto:name, testconfig:config.tests });
-            break;
-        case 'get_results':
-            res.setHeader('Content-Type', 'application/json');
-            var name = req.query.name;
-            db.results.findOne({name:name}, function(err, result){
-                if (!err && result) {
-                    res.send({status:'success', result:result.log});
-                    res.end();
-                }
-                else {
-                    res.send({status:'failed', result:null});
                     res.end();
                 }
             });
@@ -325,22 +196,19 @@ function authenticateTenant(creds, cb) {
     req.end();
 }
 
-function remove_token(version, cb) {
-    db.server_auth.remove({version:version}, function(err, data) {
-        if (cb && (typeof(cb) == "function")) {
-            if (!err) {
-                cb({"status": "success"});
-            }
-            else {
-                cb({"status": "fail"});
-            }
-        }
+function remove_token(domain, cb) {
+    logger.debug("domain>> "+domain);
+    db.tenants.remove({"creds.domain":domain}, function(err, data) {
+        if (!err)
+            cb(SUCCESS);
+        else
+            cb(FAIL);
     });
 }
 
 function is_valid_token(data) {
     var now = Date.now();
-    var then = data.date;
+    var then = data.acquired_date;
     var expires_in = data.expires_in;
     if (((now-then)/1000) > expires_in) {
         return false;
@@ -349,13 +217,19 @@ function is_valid_token(data) {
 }
 
 
-function run_auto_quiet(name) {
-    var exec = require('child_process').exec;
-    var display = '';
-    if (config.env == "production") {
-        display = 'export DISPLAY=:10;  ';
-    }
-    var cmd = display+'firefox http://localhost:3000/run_auto?name='+name;
-    exec(cmd, function(error, stdout, stderr) {
+function authenticateAndSave(creds, cb) {
+    authenticateTenant(creds, function(repl) {
+        var data = {};
+        if (repl != null) {
+            data = JSON.parse(repl);
+        }
+        if (data.access_token) {
+            data.acquired_date = Date.now();
+            data.creds = creds;
+            db.tenants.save(data);
+            cb({status:SUCCESS, data:data});
+            return;
+        }
+        cb({status:FAIL, message:data.message});
     });
 }
