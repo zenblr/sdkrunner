@@ -211,7 +211,7 @@ function authenticate(domain, access_data, cb) {
     var data = querystring.stringify(access_data);
 
     var options = {
-            host: domain+"jsjjssj",
+            host: domain,
             port: port,
             path: "/rest/auth/token",
             method: 'POST',
