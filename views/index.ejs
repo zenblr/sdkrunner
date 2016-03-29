@@ -77,18 +77,26 @@
                 <label for="redirect_uri">Redirect URI</label><input type="text" name="redirect_uri" placeholder="redirect uri"><br>
                 <label for="scopes">Scopes</label><input type="text" name="scopes" placeholder="scopes"><br>
                 <label for="grant_type">Grant Type</label><input type="text" name="grant_type" placeholder="grant type"><br>
-                <label for="username">User Name</label><input type="text" name="username" placeholder="username"><br>
-                <label for="password">Password</label><input type="text" name="password" placeholder="password"><br>
+               <!-- <label for="username">User Name</label><input type="text" name="username" placeholder="username"><br>
+                <label for="password">Password</label><input type="text" name="password" placeholder="password"><br> -->
                 <div style="margin-top:20px">
                     <button type="submit" class="add-tenant-submit">Add</button>
                     <button class="xbutton">Cancel</button>
                 </div>
             </form>
         </div>
-        <div class="get">
-            <input type="text" name="name" placeholder="Name of Script">
-            <button class="popupget">Get</button>
-            <button class="xbutton">Close</button>
+        <div class="run-tenant">
+            <form id="run-tenant">
+                <div style="margin-bottom:20px;">
+                    <h2>Please provide username and password for tenant:</h2>
+                </div>
+                <label for="username">User Name</label><input type="text" name="username" placeholder="username"><br>
+                <label for="password">Password</label><input type="text" name="password" placeholder="password"><br>
+                <div style="margin-top:20px">
+                    <button type="submit" class="run-tenant-submit">Run</button>
+                    <button class="xbutton">Cancel</button>
+                </div>
+            </form>
         </div>
         <div class="version-reset-warn">
             <p></p>

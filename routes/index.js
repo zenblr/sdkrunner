@@ -19,15 +19,15 @@ router.post('/:ask', function(req, res, next) {
   switch(req.params.ask) {
       case 'add_tenant':
             res.setHeader('Content-Type', 'application/json');
-            authenticateAndSave(req.body, function(data) {
-                if (data.status == SUCCESS) {
+            saveTenant(req.body, function(result) {
+                if (result.status == SUCCESS) {
                     res.send({status:SUCCESS, tenant:req.body.domain});
                 }
                 else {
-                    res.send({status:FAIL, tenant: req.body.domain, message:data.message});
+                    res.send({status:FAIL, tenant: req.body.domain, message:result.message});
                 }
                 res.end();
-            });
+            })
             break;
       default:
             if (next) {
@@ -77,43 +77,80 @@ router.get('/:ask', function(req, res, next) {
                 }
             });
             break;
-        case 'get_client_token':
+        case 'get_access_token':
             res.setHeader('Content-Type', 'application/json');
-            var domain = req.query.tenant;
-            db.tenants.findOne({"creds.domain":domain}, function(err, tenant){
-                if (!err && tenant) {
-                    if (!is_valid_token(tenant)) {
-                        remove_token(tenant.creds.domain, function(result) {
-                            if(result == SUCCESS) {
-                                authenticateAndSave(tenant.creds, function(data) {
-                                    if (data.status == SUCCESS) {
-                                        res.send({status:SUCCESS, client_token:data.access_token});
+            var domain = req.query.domain;
+            var username = req.query.username;
+            var password = req.query.password;
+            db.tenants.findOne(
+                {
+                    "creds.domain":domain,
+                },
+                {
+                    creds:1,
+                    clients:
+                        {
+                            $elemMatch:
+                                {
+                                    username:username
+                                }
+                        }
+                },
+                function(err, tenant) {
+                    if (!err && tenant) {
+                        if (tenant.clients && is_valid_token(tenant.clients[0].token)) {
+                            res.send({status: SUCCESS, access_token: tenant.clients[0].token.access_token});
+                            res.end();
+                            return;
+                        }
+                        else {
+                            refresh_token(tenant.creds, username, password, function (result) {
+                                if (result.status == SUCCESS) {
+                                    var client = {
+                                        token:result.token,
+                                        username: username,
+                                        password: password
+                                    };
+                                    if (tenant.clients) {
+                                        db.tenants.update(
+                                            {
+                                                "creds.domain": domain,
+                                                "clients.username": username
+                                            },
+                                            {
+                                                $set: {
+                                                    "clients.$": client
+                                                }
+                                            }
+                                        );
                                     }
                                     else {
-                                        res.send({status:FAIL, message:data.message});
+                                        db.tenants.update(
+                                            {
+                                                "creds.domain": domain
+                                            },
+                                            {
+                                                $push: {
+                                                    clients: client
+                                                }
+                                            }
+                                        );
                                     }
+                                    res.send({status: SUCCESS, access_token: client.token.access_token});
                                     res.end();
                                     return;
-                                });
-                            }
-                            else {
-                                res.send({status:FAIL, message:"could not delete old access token"});
-                                res.end();
-                                return;
-                            }
-                        });
-                    }
-                    else {
-                        res.send({status:SUCCESS, client_token:tenant.access_token});
+                                }
+                                else {
+                                    res.send({status: FAIL, message: result.message});
+                                    res.end();
+                                }
+                            });
+                        }
+                    } else {
+                        res.send({status: FAIL, message: err});
                         res.end();
-                        return;
                     }
-                }
-                else {
-                    res.send({status:FAIL, message:err});
-                    res.end();
-                }
-            });
+                });
             break;
         case 'get_fiddle':
             res.setHeader('Content-Type', 'application/json');
@@ -144,27 +181,37 @@ module.exports = router;
 
 // Private methods below this point
 
-function authenticateTenant(creds, cb) {
-    var domain       = creds['domain'],
-        port         = 443;
-
-    var querystring = require('querystring'),
-        https       = require('https');
-
+function refresh_token(creds,username, password, cb) {
     var access_data = {
         grant_type   : creds['grant_type'],
         client_id    : creds['client'],
         client_secret: creds['secret'],
         scope        : creds['scopes'],
         redirect_uri : creds['redirect_uri'],
-        username     : creds['username'],
-        password     : creds['password']
+        username     : username,
+        password     : password
     };
+    authenticate(creds['domain'], access_data, function(data) {
+        if (data.access_token) {
+            data.date = Date.now();
+            cb({status:SUCCESS, token:data});
+            return;
+        }
+        else {
+            cb({status:FAIL, message:JSON.stringify(data)});
+        }
+    });
+}
+
+function authenticate(domain, access_data, cb) {
+    var port         = 443;
+    var querystring = require('querystring'),
+        https       = require('https');
 
     var data = querystring.stringify(access_data);
 
     var options = {
-            host: domain,
+            host: domain+"jsjjssj",
             port: port,
             path: "/rest/auth/token",
             method: 'POST',
@@ -177,14 +224,13 @@ function authenticateTenant(creds, cb) {
     };
 
     var repl = '';
-
     var req = https.request(options, function(res) {
                 res.setEncoding('utf8');
                 res.on('data', function (chunk) {
                     repl += chunk;
                 });
                 res.on('end', function () {
-                    cb(repl);
+                    cb(JSON.parse(repl));
                 });
                 res.on('error', function (e) {
                     logger.error(e);
@@ -192,44 +238,30 @@ function authenticateTenant(creds, cb) {
                 });
               });
 
+    req.on('error', function(err) {
+        logger.error(err);
+        cb(err);
+    });
+
     req.write(data);
     req.end();
 }
 
-function remove_token(domain, cb) {
-    logger.debug("domain>> "+domain);
-    db.tenants.remove({"creds.domain":domain}, function(err, data) {
-        if (!err)
-            cb(SUCCESS);
-        else
-            cb(FAIL);
-    });
-}
-
-function is_valid_token(data) {
+function is_valid_token(token) {
     var now = Date.now();
-    var then = data.acquired_date;
-    var expires_in = data.expires_in;
-    if (((now-then)/1000) > expires_in) {
+    var then = token.date;
+    if (((now-then)/1000) > token.expires_in) {
         return false;
     }
     return true;
 }
 
-
-function authenticateAndSave(creds, cb) {
-    authenticateTenant(creds, function(repl) {
-        var data = {};
-        if (repl != null) {
-            data = JSON.parse(repl);
-        }
-        if (data.access_token) {
-            data.acquired_date = Date.now();
-            data.creds = creds;
-            db.tenants.save(data);
-            cb({status:SUCCESS, data:data});
+function saveTenant(creds, cb) {
+    db.tenants.update({"creds.domain":creds.domain},{$set:{creds:creds}}, {upsert:true}, function(err,value) {
+        if (!err) {
+            cb({status:SUCCESS});
             return;
         }
-        cb({status:FAIL, message:data.message});
+        cb({status:FAIL, message:err});
     });
 }

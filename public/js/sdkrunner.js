@@ -38,56 +38,19 @@ $(document).ready(function() {
             return;
         }
         var fiddle = $('.select-fiddle').val();
-        var tenant = $('.select-tenant').val();
-        initFiddle({fiddle:fiddle, tenant:tenant});
-    });
-
-
-    $('.clear-button').click(function() {
-        $('textarea[name=code]').val('');
-    });
-
-    $('.close-button').click(function() {
-        $('.code-box, .go-box').hide();
-    });
-
-    $('.save-button').click(function() {
-        var ele = $('div.save').clone();
-        ele.find('.popupsave').click(function() {
-            var name = ele.find('input[name=name]').val();
-            var content = $('textarea[name=code]').val();
-            $.post("/save", {name:name, content:content}, function(resp) {
-                if (resp.status == "success") {
-                    ele.find('input').remove();
-                    ele.find('.popupsave').remove();
-                    ele.append("<p>Your test script has been saved as: '"+name+"'");
-                    logMsg("INFO", "Test script saved as: '"+name+"'");
-                }
-            }, "json");
-        })
-        showPopup(ele);
-    });
-
-    $('.get-button').click(function() {
-        var ele = $('div.get').clone();
-        ele.find('.popupget').click(function() {
-            var name = ele.find('input[name=name]').val();
-            $.get("/get", {name:name}, function(resp) {
-                if (resp.status == "success") {
-                    if (resp.content_type && (resp.content_type == "array")) {
-                        $('textarea[name=code]').val(JSON.stringify(resp.content));
-                    }
-                    else {
-                        $('textarea[name=code]').val(resp.content);
-                    }
-                    ele.find('input').remove();
-                    ele.find('.popupget').remove();
-                    ele.append("<p>Your test script '"+name+"' has been fetched.");
-                    logMsg("INFO", "Test script '"+name+"' loaded.");
-                }
-            }, "json");
-        })
-        showPopup(ele);
+        var domain = $('.select-tenant').val();
+        var ele = $('div.run-tenant').clone();
+        var id = ele.find('form#run-tenant').attr('id');
+        id = id+'-1';
+        ele.find('form#run-tenant').attr('id', id);
+        ele.find('button.run-tenant-submit').click(function(e) {
+            e.preventDefault();
+            var username = $('form#'+id+' input[name=username]').val();
+            var password = $('form#'+id+' input[name=password]').val();
+            hidePopup();
+            initFiddle({fiddle:fiddle, domain:domain, username:username, password:password});
+        });
+        showPopup(ele, {height:300, closebox:0});
     });
 
 
@@ -95,45 +58,6 @@ $(document).ready(function() {
         $('#log').empty().append('<p align="left"></p>');
     });
 
-
-    $("input[name=command]").keyup(function(e) {
-        if (e.keyCode == 13) {
-            logMsg("INFO", $(this).val());
-        }
-    });
-
-    $(".recording:not(.roundbutton)").click(function() {
-        var not_recording = !!$('.recording:not(.roundbutton)').text().match(/Start/);
-
-        if (not_recording) {
-            $('.recording.roundbutton').css('background-color','red');
-            $('.recording:not(.roundbutton)').text("Stop Recording");
-            in_recording_mode = true;
-        }
-        else {
-            $('.recording.roundbutton').css('background-color','white');
-            $('.recording:not(.roundbutton)').text("Start Recording");
-            in_recording_mode = false;
-
-        }
-    });
-
-
-
-    $('.pin-control').click(function() {
-       if ($(this).hasClass('pinned')) {
-            $(this).removeClass('pinned').addClass('unpinned');
-            $(this).find('.pin').text('P');
-       }
-        else {
-           $(this).removeClass('unpinned').addClass('pinned');
-           $(this).find('.pin').text('U');
-       }
-    });
-
-    $('.configure-tests').click(function(e)  {
-        e.preventDefault();
-    });
 
 });
 
@@ -180,7 +104,9 @@ function initFiddle(props) {
     };
 
     var init_tenant = function(cb) {
-        $.get('/get_client_token', {tenant: props.tenant}, function (data) {
+        $.get('/get_access_token', {domain: props.domain,
+                                    username:props.username,
+                                    password:props.password}, function (data) {
             if (data.status == "fail") {
                 logMsg("ERROR", data.message);
                 cb(false);
@@ -189,7 +115,7 @@ function initFiddle(props) {
             APP.SDK.init($,{
                 domain: props.tenant,
                 port: 443,
-                client_token: data.client_token,
+                client_token: data.access_token,
                 https: true
             }, function() {
                 logMsg("INFO", "sdk initialized successfully");
@@ -335,47 +261,5 @@ function showPopup(ele, opt) {
         height: height,
         onLoad: onload
     });
-}
-
-
-function login(ver) {
-    if ($.isEmptyObject(sdk[ver].sdk)) {
-        logMsg('ERROR', 'Initialization attempted for unknown version!');
-        return;
-    }
-    if (!sdk[ver].sdk.APP.SDK.initialized) {
-        $.post("/login", {'version':ver}, function (data, status) {
-            if (data) {
-                if (data.access_token) {
-                        sdk[ver].sdk.APP.SDK.init($, {
-                            domain: sdk[ver]['domain'],
-                            port: 443,
-                            https: true,
-                            client_token: data.access_token,
-                            version2: ver == 'v2' ? true : false
-                        },
-                        function () {
-                            current_version = ver;
-                            logMsg("INFO", "Version '"+ver+"' initialized!");
-                        });
-                }
-                else {
-                    logMsg("ERROR", "Initializaton of version '"+ver+"' failed: "+data.message);
-                }
-            }
-        }, "json")
-            .fail(function (jqXHR, status, error) {
-                alert("Initialization of version '"+ver+"' failed! "+error);
-            });
-    }
-    else {
-        current_version = ver;
-    }
-}
-
-function reloadSDK()
-{
-    $('script[src$="sdk.js"]').remove();
-    $('head').append('<script src="js/sdk.js""></script>');
 }
 
