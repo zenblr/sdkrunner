@@ -113,7 +113,7 @@ function initFiddle(props) {
                 return;
             }
             APP.SDK.init($,{
-                domain: props.tenant,
+                domain: props.domain,
                 port: 443,
                 client_token: data.access_token,
                 https: true
@@ -155,6 +155,12 @@ function initFiddle(props) {
  *
  *
  */
+
+function logConsole(event) {
+    var str = event.data + "<br>";
+    $("#log p:last-child").html($("#log p:last-child").html()+str);
+    scroll();
+}
 
 function logMsg(type, str) {
     switch(type.toUpperCase()) {
@@ -263,3 +269,5 @@ function showPopup(ele, opt) {
     });
 }
 
+
+window.addEventListener("message", logConsole, false);
