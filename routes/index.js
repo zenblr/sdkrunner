@@ -108,8 +108,8 @@ router.get('/:ask', function(req, res, next) {
                                 if (result.status == SUCCESS) {
                                     var client = {
                                         token:result.token,
-                                        username: username,
-                                        password: password
+                                        username: username
+                                        //password: password
                                     };
                                     if (tenant.clients) {
                                         db.tenants.update(
