@@ -9,8 +9,11 @@
     <meta name="author" content="">
     <link rel="icon" href="../../favicon.ico">
 
-    <title>Timeli SDK Runner</title>
-
+    <% if (mode == 'csv_upload') { %>
+        <title>Timeli CSV Uploader</title>
+    <% } else { %>
+        <title>Timeli SDK Runner</title>
+    <% } %>
     <!-- Bootstrap core CSS -->
     <link href="/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/bootstrap-theme.min.css" rel="stylesheet">
@@ -41,24 +44,33 @@
         <div id="navbar" class="collapse navbar-collapse">
           <ul class="nav navbar-nav">
             <li><a href="#" class="add-tenant">Add Tenant</a></li>
-            <li><a href="#" class="add-fiddle">Add Fiddle</a></li>
+            <% if (mode != 'csv_upload') { %>
+                <li><a href="#" class="add-fiddle">Add Fiddle</a></li>
+            <% } %>
           </ul>
         </div><!--/.nav-collapse -->
     </nav>
 
     <div class="container">
       <div class="starter-template">
-        <h1 style="text-align:left;width:30%;float:left;">Timeli SDK Runner</h1>
+          <% if (mode == 'csv_upload') { %>
+            <h1 style="text-align:left;width:40%;float:left;">Timeli CSV Uploader</h1>
+          <% } else { %>
+            <h1 style="text-align:left;width:30%;float:left;">Timeli SDK Runner</h1>
+          <% } %>
+
          <div class="control">
-             <label>Select Fiddle</label>
-             <select class="select-fiddle">
-                 <option value="0">Select Fiddle</option>
-             </select>
+             <% if (mode != 'csv_upload') { %>
+                 <label>Select Fiddle</label>
+                 <select class="select-fiddle">
+                     <option value="0">Select Fiddle</option>
+                 </select>
+             <% } %>
              <label style="margin-left:20px;">Select Tenant</label>
              <select class="select-tenant">
                  <option value="0">Select Tenant</option>
              </select>
-             <button class="run-button">Run</button>
+             <button class="run-button" style="margin-left:20px;">Run</button>
          </div>
          <div id="log" style="float:left;" class="console"><p align="left"></p></div>
          <div id="fiddle-canvas" class="console hidden"></div>
@@ -138,5 +150,9 @@
     <script src="/js/sdkrunner.js"></script>
     <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
     <script src="/js/ie10-viewport-bug-workaround.js"></script>
+    <% if (mode == 'csv_upload') { %>
+    <script>var mode = 'csv_upload';</script>
+    <% } %>
+
   </body>
 </html>

@@ -4,6 +4,7 @@ var log4js = require('log4js');
 var logger = log4js.getLogger("INDEX");
 logger.setLevel("DEBUG");
 var db = require('../lib/db').db;
+var utils = require('../lib/utils');
 var config = require('../config/config');
 var oneHour = 1 * 60 * 60 * 1000;
 
@@ -12,7 +13,7 @@ const FAIL    = "fail";
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
-  res.render('index', { title: 'Express', testconfig:config.tests });
+  res.render('index', {mode:config.mode});
 });
 
 router.post('/:ask', function(req, res, next) {
@@ -99,46 +100,56 @@ router.get('/:ask', function(req, res, next) {
                 function(err, tenant) {
                     if (!err && tenant) {
                         if (tenant.clients && is_valid_token(tenant.clients[0].token)) {
-                            res.send({status: SUCCESS, access_token: tenant.clients[0].token.access_token});
-                            res.end();
+                            //check if password is okay
+                            utils.verifyPassword(password,tenant.clients[0].password, function(isCorrect) {
+                                if (isCorrect) {
+                                    res.send({status: SUCCESS, access_token: tenant.clients[0].token.access_token});
+                                }
+                                else {
+                                    res.send({status: FAIL, message: "incorrect username/password"});
+                                }
+                                res.end();
+                            })
                             return;
                         }
                         else {
                             refresh_token(tenant.creds, username, password, function (result) {
                                 if (result.status == SUCCESS) {
-                                    var client = {
-                                        token:result.token,
-                                        username: username
-                                        //password: password
-                                    };
-                                    if (tenant.clients) {
-                                        db.tenants.update(
-                                            {
-                                                "creds.domain": domain,
-                                                "clients.username": username
-                                            },
-                                            {
-                                                $set: {
-                                                    "clients.$": client
+                                    utils.encodePassword(password, function(encPassword) {
+                                        var client = {
+                                            token:result.token,
+                                            username: username,
+                                            password: encPassword
+                                        };
+                                        if (tenant.clients) {
+                                            db.tenants.update(
+                                                {
+                                                    "creds.domain": domain,
+                                                    "clients.username": username
+                                                },
+                                                {
+                                                    $set: {
+                                                        "clients.$": client
+                                                    }
                                                 }
-                                            }
-                                        );
-                                    }
-                                    else {
-                                        db.tenants.update(
-                                            {
-                                                "creds.domain": domain
-                                            },
-                                            {
-                                                $push: {
-                                                    clients: client
+                                            );
+                                        }
+                                        else {
+                                            db.tenants.update(
+                                                {
+                                                    "creds.domain": domain
+                                                },
+                                                {
+                                                    $push: {
+                                                        clients: client
+                                                    }
                                                 }
-                                            }
-                                        );
-                                    }
-                                    res.send({status: SUCCESS, access_token: client.token.access_token});
-                                    res.end();
-                                    return;
+                                            );
+                                        }
+                                        res.send({status: SUCCESS, access_token: client.token.access_token});
+                                        res.end();
+                                        return;
+                                    });
                                 }
                                 else {
                                     res.send({status: FAIL, message: result.message});

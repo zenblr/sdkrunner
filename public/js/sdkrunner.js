@@ -38,6 +38,8 @@ $(document).ready(function() {
             return;
         }
         var fiddle = $('.select-fiddle').val();
+        if ((typeof(mode) !== "undefined") && (mode == 'csv_upload'))
+            fiddle = 'csv_upload';
         var domain = $('.select-tenant').val();
         var ele = $('div.run-tenant').clone();
         var id = ele.find('form#run-tenant').attr('id');
