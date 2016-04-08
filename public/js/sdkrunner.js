@@ -62,11 +62,12 @@ $(document).ready(function() {
 
             if (duplicate_fiddle) {
                 ele.find('.show-message p').append(
-                    "A fiddle by name '" + fiddle + "' already exists. <br>" +
-                    "Uploading will cause existing fiddle to be overwritten. <br>" +
+                    "A fiddle by name '" + fiddle + "' already exists. " +
+                    "Uploading will cause existing fiddle to be overwritten. " +
                     "Continue?");
                 ele.find('form#'+id).hide();
                 ele.find('.show-message').show();
+                $('#cboxWrapper').css('height',100);
                 ele.find('button.show-message-ok').click(function(e) {
                     hidePopup();
                     submit_fiddle(form_data, fiddle);
