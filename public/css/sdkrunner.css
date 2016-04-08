@@ -128,3 +128,12 @@ iframe {
   width:100%;
   height:100%;
 }
+
+#add-fiddle-1 label {
+  margin-right:10px;
+}
+
+#add-fiddle-1 input[type="file"] {
+  margin-top:10px;
+  display:inline;
+}

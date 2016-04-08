@@ -97,6 +97,26 @@
                 </div>
             </form>
         </div>
+        <div class="add-fiddle">
+            <form id="add-fiddle">
+                <div style="margin-bottom:20px;">
+                    <h2>Add a new Fiddle</h2>
+                </div>
+                <label for="name">Name</label><input type="text" name="name" placeholder="Name of fiddle"><br>
+                <label for="fiddle_files[]">HTML File</label><input type="file" name="fiddle_files"><br>
+                <label>Javascript File</label><input type="file" name="fiddle_files"><br>
+                <label>CSS File</label><input type="file" name="fiddle_files"><br>
+                <div style="margin-top:20px">
+                    <button type="submit" class="add-fiddle-submit">Add</button>
+                    <button class="xbutton">Cancel</button>
+                </div>
+            </form>
+            <div class="show-message" style="display:none;">
+                <p></p>
+                <button type="submit" class="show-message-ok">OK</button>
+                <button class="xbutton">Cancel</button>
+            </div>
+        </div>
         <div class="run-tenant">
             <form id="run-tenant">
                 <div style="margin-bottom:20px;">
@@ -107,33 +127,6 @@
                 <div style="margin-top:20px">
                     <button type="submit" class="run-tenant-submit">Run</button>
                     <button class="xbutton">Cancel</button>
-                </div>
-            </form>
-        </div>
-        <div class="version-reset-warn">
-            <p></p>
-            <button class="popupOK">OK</button>
-            <button class="xbutton">Cancel</button>
-        </div>
-        <div class="list-of-scripts">
-            <p><a class="all-scripts">List All</a></p>
-            <table border="1">
-                <tr>
-                    <th>Name</th><th>Description</th>
-                </tr>
-            </table>
-        </div>
-        <div class="recorded-results">
-            <ul>
-            </ul>
-        </div>
-        <div>
-            <form class="form-configure-tests">
-                When comparing results, check array lengths are the same:
-                <input type="radio" name="check_array_length" value="yes"> Yes
-                <input type="radio" name="check_array_length" value="no"> No
-                <div style="width:50%;margin:auto;margin-top:10px;">
-                    <button type="submit" class="btn btn-primary update-test-config">Update</button>
                 </div>
             </form>
         </div>

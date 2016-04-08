@@ -6,6 +6,10 @@ logger.setLevel("DEBUG");
 var db = require('../lib/db').db;
 var utils = require('../lib/utils');
 var config = require('../config/config');
+var multer = require('multer');
+const fs = require('fs');
+
+
 var oneHour = 1 * 60 * 60 * 1000;
 
 const SUCCESS = "success";
@@ -29,6 +33,50 @@ router.post('/:ask', function(req, res, next) {
                 }
                 res.end();
             })
+            break;
+      case 'add_fiddle':
+            res.setHeader('Content-Type', 'application/json');
+            var fiddle = {};
+            var storage =   multer.diskStorage({
+              destination: function (req, file, cb) {
+                  var dest = __dirname+'/../public/fiddles/'+req.body.name;
+                  if (!fs.existsSync(dest)){
+                      fs.mkdirSync(dest);
+                  }
+                  cb(null,dest);
+              },
+              filename: function (req, file, cb) {
+                  var type = file.originalname.split('.').pop();
+                  type = type == "js" ? "script" : type;
+                  fiddle[type] = file.originalname;
+                  cb(null, file.originalname);
+              }
+            });
+            var upload = multer({storage:storage}).array('fiddle_files');
+            upload(req,res,function(err) {
+              if(err) {
+                  res.send({status:FAIL, fiddle:req.body.name, message:err});
+                  res.end();
+              }
+              else {
+                  fiddle['name'] = req.body.name;
+                  if (!fiddle.html) {
+                      res.send({status:FAIL, fiddle:req.body.name, message: "html file is missing"});
+                      res.end();
+                  }
+                  else
+                      db.fiddles.update({"name":fiddle.name},fiddle, {upsert:true}, function(err,value) {
+                          if (!err) {
+                              res.send({status:SUCCESS, fiddle:req.body.name});
+                              res.end();
+                          }
+                          else {
+                              res.send({status:FAIL, fiddle:req.body.name, message:err});
+                              res.end();
+                          }
+                      });
+              }
+            });
             break;
       default:
             if (next) {

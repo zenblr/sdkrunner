@@ -29,6 +29,58 @@ $(document).ready(function() {
         });
         showPopup(ele, {height:450, closebox:0});
     });
+    $('a.add-fiddle').click(function(e) {
+        e.preventDefault();
+        var ele = $('div.add-fiddle').clone();
+        var id = ele.find('form#add-fiddle').attr('id');
+        id = id+'-1';
+        ele.find('form#add-fiddle').attr('id', id);
+        ele.find('button.add-fiddle-submit').click(function(e) {
+            e.preventDefault();
+            var form_data = new FormData();
+            var fiddle = $("#"+id+" input[name=name]").val();
+            form_data.append("name", fiddle);
+            var f = $("#"+id+" input[name=fiddle_files]")[0].files[0];
+            if (typeof(f) != "undefined") {
+                form_data.append("fiddle_files", f);
+            }
+            f = $("#"+id+" input[name=fiddle_files]")[1].files[0];
+            if (typeof(f) != "undefined") {
+                form_data.append("fiddle_files", f);
+            }
+            f = $("#"+id+" input[name=fiddle_files]")[2].files[0];
+            if (typeof(f) != "undefined") {
+                form_data.append("fiddle_files", f);
+            }
+            var duplicate_fiddle = false;
+            for (var i=1; i<$('.select-fiddle option').length; i++) {
+                if ($('.select-fiddle option:eq(' + i + ')').val() == fiddle) {
+                    duplicate_fiddle = true;
+                    break;
+                }
+            }
+
+            if (duplicate_fiddle) {
+                ele.find('.show-message p').append(
+                    "A fiddle by name '" + fiddle + "' already exists. <br>" +
+                    "Uploading will cause existing fiddle to be overwritten. <br>" +
+                    "Continue?");
+                ele.find('form#'+id).hide();
+                ele.find('.show-message').show();
+                ele.find('button.show-message-ok').click(function(e) {
+                    hidePopup();
+                    submit_fiddle(form_data, fiddle);
+                });
+            }
+            else {
+                hidePopup();
+                submit_fiddle(form_data, fiddle);
+            }
+        });
+        showPopup(ele, {height:450, closebox:0});
+    });
+
+
 
     $('.run-button').click(function(e) {
         e.preventDefault();
@@ -62,6 +114,29 @@ $(document).ready(function() {
 
 
 });
+
+function submit_fiddle(form_data, fiddle) {
+    $.ajax({
+        url: '/add_fiddle',
+        type: 'POST',
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        data: form_data,
+        error: function(xhr, status) {
+            logMsg("ERROR", "Failed to submit new fiddle '"+fiddle+"'. (ajax error)");
+        },
+        success: function(data) {
+            if (data.status=="success") {
+                logMsg("INFO", "Fiddle '"+data.fiddle+"' has been added successfully.");
+                refresh_fiddles_list();
+            }
+            else {
+                logMsg("ERROR", "Failed to add new fiddle '"+data.fiddle+"'. "+data.message);
+            }
+        }
+    });
+}
 
 function refresh_tenant_list() {
     $.get('/get_tenants', function(data) {
@@ -135,7 +210,7 @@ function initFiddle(props) {
                return;
             }
             //var script = fiddle.script ? "/fiddles/"+fiddle.script : null;
-            var html   = fiddle.html ? "/fiddles/"+fiddle.html : null;
+            var html   = fiddle.html ? "/fiddles/"+fiddle.name+"/"+fiddle.html : null;
             //var css    = fiddle.css ? "/fiddles/"+fiddle.css : null;
             if (html != null) {
                 $("div#fiddle-canvas").html('<iframe src="'+html+'"></iframe>');
@@ -267,9 +342,11 @@ function showPopup(ele, opt) {
         html: ele,
         width: width,
         height: height,
-        onLoad: onload
+        onLoad: onload,
+        onClosed:onClosed
     });
 }
+
 
 
 window.addEventListener("message", logConsole, false);
