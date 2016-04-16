@@ -73,4 +73,9 @@ app.use(function(err, req, res, next) {
 });
 
 
+var db = require('./lib/db').db;
+//check whether the csv_upload fiddle is present in the database.
+//if not, create it
+db.fiddles.update({name:'csv_upload'},{name:'csv_upload', html:'csv_upload.html'}, {upsert:true});
+
 module.exports = app;
