@@ -111,8 +111,6 @@ router.get('/:ask', function(req, res, next) {
         case 'get_fiddles':
             res.setHeader('Content-Type', 'application/json');
             var fiddles = [];
-            //ensure that the fiddles collection has the csv_upload fiddle
-            db.fiddles.update({name:'csv_upload'},{$set:{name:'csv_upload', html:'csv_upload.html'}}, {upsert:true});
             db.fiddles.find({},{name:1}).forEach(function(err, fiddle) {
                 if (!err) {
                     if (fiddle) {
