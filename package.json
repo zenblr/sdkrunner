@@ -1,6 +1,10 @@
 {
   "name": "sdkrunner",
+<<<<<<< HEAD
   "version": "2.1.7",
+=======
+  "version": "2.1.7",
+>>>>>>> origin/test2
   "private": true,
   "scripts": {
     "start": "node ./bin/www"
