@@ -10,4 +10,6 @@ sudo apt-get remove --purge node
 
 // npm and nodejs installations should be complete. 
 
+// this is a test line
+
 
